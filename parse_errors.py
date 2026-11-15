@@ -6,7 +6,8 @@ except FileNotFoundError:
     exit(1)
 
 # Ищем настоящие ошибки по всему логу
-error_keywords = ["traceback", "command failed", "build failed", "syntaxerror", "exception", "fatal error", "killed", "memoryerror"]
+error_keywords = ["traceback", "command failed", "build failed", "syntaxerror", "exception", "fatal error", "killed", "memoryerror", "should have same version"]
+
 ignore_keywords = ["-werror", "gcc ", "g++ ", "checking for"]
 
 errors = []
