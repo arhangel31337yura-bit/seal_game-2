@@ -1,5 +1,6 @@
 from kivy.app import App
 from kivy.uix.floatlayout import FloatLayout
+from kivy.uix.widget import Widget
 from kivy.uix.label import Label
 from kivy.uix.button import Button
 from kivy.clock import Clock
@@ -7,6 +8,10 @@ from kivy.graphics import Color, Ellipse, Rectangle, Line, Polygon, RoundedRecta
 from kivy.utils import get_color_from_hex
 import random
 import math
+
+# Отдельный холст для рисования игры (он будет на заднем плане)
+class GameCanvas(Widget):
+    pass
 
 class SealGame(FloatLayout):
     def __init__(self, **kw):
@@ -22,9 +27,13 @@ class SealGame(FloatLayout):
         self.is_blinking = False
         self.lasers = []
         self.gun_cooldown = 0
-        self.seal_x = self.width / 2
+        self.seal_x = 200 # По умолчанию, чтобы не было ошибки при старте
 
-        # --- HUD (Счёт) ---
+        # 1. Слой для рисования игры (самый нижний)
+        self.game_canvas = GameCanvas()
+        self.add_widget(self.game_canvas)
+
+        # 2. HUD (Счёт)
         self.score_label = Label(
             text="0", font_size='28sp', bold=True, 
             color=get_color_from_hex("#FFD700"), 
@@ -32,7 +41,12 @@ class SealGame(FloatLayout):
         )
         self.add_widget(self.score_label)
 
-        # --- ЭКРАН GAME OVER ---
+        # 3. Меню
+        self.menu_layout = FloatLayout()
+        self.create_menu()
+        self.add_widget(self.menu_layout)
+
+        # 4. Экран Game Over
         self.game_over_layout = FloatLayout(opacity=0)
         self.game_over_label = Label(
             text="", font_size='40sp', bold=True, 
@@ -49,19 +63,19 @@ class SealGame(FloatLayout):
         self.game_over_layout.add_widget(self.restart_btn)
         self.add_widget(self.game_over_layout)
 
-        # --- ВИДИМАЯ ПАСХАЛКА (Рыбка-кнопка) ---
+        # 5. Пасхалка (Рыбка-кнопка)
         self.easter_egg_btn = Button(
             background_color=(0,0,0,0), background_normal='', background_down='', 
             size_hint=(None, None), size=(100, 100), pos=(30, 30)
         )
-        # Рисуем рыбку ПРЯМО НА КНОПКЕ, чтобы она была видимой
+        # Рисуем рыбку прямо на кнопке
         with self.easter_egg_btn.canvas.after:
-            Color(1, 0.8, 0.2) # Золотой цвет
-            Ellipse(pos=(20, 30), size=(60, 35)) # Тело
-            Polygon(points=[20, 47.5, 0, 20, 0, 75]) # Хвост
-            Color(0, 0, 0) # Глаз
+            Color(1, 0.8, 0.2)
+            Ellipse(pos=(20, 30), size=(60, 35))
+            Polygon(points=[20, 47.5, 0, 20, 0, 75])
+            Color(0, 0, 0)
             Ellipse(pos=(65, 42), size=(8, 8))
-            Color(1, 1, 1) # Блик в глазу
+            Color(1, 1, 1)
             Ellipse(pos=(67, 44), size=(3, 3))
 
         self.easter_egg_btn.bind(on_release=self.show_easter_egg)
@@ -74,9 +88,6 @@ class SealGame(FloatLayout):
         )
         self.easter_egg_bubble.bind(size=self.easter_egg_bubble.setter('text_size'))
 
-        # --- МЕНЮ ---
-        self.menu_layout = FloatLayout()
-        self.create_menu()
         self.menu_layout.add_widget(self.easter_egg_btn)
         self.menu_layout.add_widget(self.easter_egg_bubble)
 
@@ -103,7 +114,6 @@ class SealGame(FloatLayout):
         self.menu_layout.add_widget(btn_normal)
         self.menu_layout.add_widget(btn_lol)
         self.menu_layout.add_widget(btn_hard)
-        self.add_widget(self.menu_layout)
 
     def show_easter_egg(self, instance):
         self.easter_egg_bubble.opacity = 1
@@ -121,6 +131,7 @@ class SealGame(FloatLayout):
         self.lasers = []
         self.spawn_timer = 0
         self.boss_timer = 0
+        self.seal_x = self.width / 2
         
         self.score_label.text = "0"
         self.menu_layout.opacity = 0
@@ -157,6 +168,10 @@ class SealGame(FloatLayout):
             self.redraw()
             return
 
+        # Если ширина еще не определилась, ставим тюленя по центру
+        if self.seal_x == 0 and self.width > 0:
+            self.seal_x = self.width / 2
+
         self.gun_cooldown -= dt
         self.blink_timer += dt
 
@@ -167,7 +182,7 @@ class SealGame(FloatLayout):
                 self.blink_timer = 0
 
         if random.random() < 0.1:
-            self.bubbles.append({"x": random.randint(0, int(self.width)), "y": -20, "r": random.randint(5, 15), "speed": random.uniform(50, 150)})
+            self.bubbles.append({"x": random.randint(0, int(self.width) if self.width > 0 else 800), "y": -20, "r": random.randint(5, 15), "speed": random.uniform(50, 150)})
         for b in self.bubbles[:]:
             b["y"] += b["speed"] * dt
             if b["y"] > self.height + 50: self.bubbles.remove(b)
@@ -263,8 +278,10 @@ class SealGame(FloatLayout):
         Polygon(points=pts)
 
     def redraw(self):
-        self.canvas.clear()
-        with self.canvas:
+        # Очищаем ТОЛЬКО холст игры, не трогая кнопки
+        self.game_canvas.canvas.clear()
+        
+        with self.game_canvas.canvas:
             Color(0.1, 0.4, 0.7)
             Rectangle(pos=(0, 0), size=self.size)
             Color(0.15, 0.5, 0.8)
@@ -275,7 +292,6 @@ class SealGame(FloatLayout):
                 Ellipse(pos=(b["x"] - b["r"], b["y"] - b["r"]), size=(b["r"]*2, b["r"]*2))
 
             if self.state == "menu":
-                # Рисуем пузырь, если пасхалка активна
                 if self.easter_egg_bubble.opacity > 0:
                     Color(1, 1, 1, 0.9)
                     RoundedRectangle(pos=(140, 40), size=(300, 80), radius=[15,])
