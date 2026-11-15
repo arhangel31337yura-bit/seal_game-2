@@ -1,7 +1,6 @@
 name: Build APK and Log Errors
 
 on:
-  push:
   workflow_dispatch:
 
 jobs:
@@ -36,10 +35,8 @@ jobs:
     - name: Try Build
       continue-on-error: true
       run: |
-        set -o pipefail
         echo "y" | buildozer -v android debug 2>&1 | tee build_log.txt
 
-    # ЭТОТ ШАГ ТЕПЕРЬ СРАБОТАЕТ ВСЕГДА
     - name: Generate Error Log
       if: always()
       run: python parse_errors.py
