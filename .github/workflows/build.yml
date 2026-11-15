@@ -1,4 +1,4 @@
-name: Build APK and Log Errors
+name: Build APK
 
 on:
   workflow_dispatch:
@@ -8,6 +8,9 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
+    # ==========================================
+    # ⚙️ ЭТАП 1: ПОДГОТОВКА (Ставим нужные программы)
+    # ==========================================
     - name: Checkout code
       uses: actions/checkout@v4
 
@@ -32,25 +35,44 @@ jobs:
         python -m pip install --upgrade pip
         pip install buildozer cython==0.29.36
 
+    # ==========================================
+    # 🎒 ЭТАП 2: КЭШИРОВАНИЕ (Достаем "рюкзак" с файлами)
+    # ==========================================
+    # Вот эта строчка вызывает тот самый отдельный файл, который мы сделали выше!
+    - name: Setup Cache (Загружаем кэш)
+      uses: ./.github/actions/cache-buildozer
+
+    # ==========================================
+    # 🏗️ ЭТАП 3: СБОРКА (Робот собирает игру)
+    # ==========================================
     - name: Try Build
-      continue-on-error: true
+      id: build_apk
+      continue-on-error: true # Если упадет - не останавливаться, а идти к логам
       run: |
         echo "y" | buildozer -v android debug 2>&1 | tee build_log.txt
 
+    # ==========================================
+    # 🚨 ЭТАП 4: ЛОГИРОВАНИЕ (Сработает ТОЛЬКО если сборка упала)
+    # ==========================================
+    # Если сборка сломалась, мы запускаем наш Питон-скрипт
     - name: Generate Error Log
-      if: always()
+      if: steps.build_apk.outcome == 'failure' 
       run: python parse_errors.py
 
-    - name: Upload Logs (Always)
-      if: always()
+    # И загружаем файлик с ошибками, чтобы ты мог его скачать
+    - name: Upload Error Log
+      if: steps.build_apk.outcome == 'failure'
       uses: actions/upload-artifact@v4
       with:
-        name: build-logs
-        path: |
-          build_log.txt
-          errors_only.txt
+        name: build-errors
+        path: errors_only.txt
 
-    - name: Upload APK (If Exists)
+    # ==========================================
+    # 📦 ЭТАП 5: РЕЗУЛЬТАТ (Сработает ТОЛЬКО если всё супер!)
+    # ==========================================
+    # Если сборка прошла успешно - загружаем готовый APK
+    - name: Upload APK
+      if: steps.build_apk.outcome == 'success'
       uses: actions/upload-artifact@v4
       with:
         name: sealgame-apk
