@@ -1,4 +1,5 @@
-name: Build Android APK
+name: Build and Catch Errors
+
 on:
   push:
   workflow_dispatch:
@@ -27,40 +28,33 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y git zip unzip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev cmake libffi-dev libssl-dev
 
-    - name: Install buildozer and cython
+    - name: Install Buildozer
       run: |
         python -m pip install --upgrade pip
         pip install buildozer cython==0.29.36
 
-    - name: Build APK with Buildozer
-      id: build_step
-      continue-on-error: true  # <--- Робот продолжит работу даже если сборка упадет
+    - name: Run Build
+      id: build_apk
+      continue-on-error: true
       run: |
-        echo "y" | buildozer -v android debug 2>&1 | tee full_build_log.txt
+        echo "y" | buildozer -v android debug 2>&1 | tee build_log.txt
 
-    - name: Filter Errors to a file
-      run: |
-        echo "=== ГЛАВНЫЕ ОШИБКИ ===" > errors_only.txt
-        grep -i -E "error|exception|traceback|failed" full_build_log.txt >> errors_only.txt || true
-        echo -e "\n\n=== ПОСЛЕДНИЕ 50 СТРОК ЛОГА ===" >> errors_only.txt
-        tail -n 50 full_build_log.txt >> errors_only.txt || true
+    # ВЫЗОВ НАШЕГО ОТДЕЛЬНОГО СКРИПТА
+    - name: Parse Errors with Script
+      if: steps.build_apk.outcome == 'failure'
+      run: python parse_errors.py
 
-    - name: Upload Errors Log
+    # Загрузка файлов (APK если успех, errors_only.txt если провал)
+    - name: Upload APK
+      if: steps.build_apk.outcome == 'success'
       uses: actions/upload-artifact@v4
       with:
-        name: errors-log
+        name: sealgame-apk
+        path: bin/*.apk
+
+    - name: Upload Error Log
+      if: steps.build_apk.outcome == 'failure'
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-errors
         path: errors_only.txt
-
-    - name: Upload APK Artifact
-      if: steps.build_step.outcome == 'success' # Скачиваем APK только если сборка реально удалась
-      uses: actions/upload-artifact@v4
-      with:
-        name: sealgame-apk
-        path: bin/*.apk
-
-    - name: Fail if build failed
-      if: steps.build_step.outcome == 'failure' # Красим крестик в красный, если упало
-      run: exit 1
-      with:
-        name: sealgame-apk
-        path: bin/*.apk
