@@ -1,4 +1,4 @@
-name: Build and Catch Errors
+name: Build APK and Log Errors
 
 on:
   push:
@@ -28,33 +28,33 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y git zip unzip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev cmake libffi-dev libssl-dev
 
-    - name: Install Buildozer
+    - name: Install buildozer and cython
       run: |
         python -m pip install --upgrade pip
         pip install buildozer cython==0.29.36
 
-    - name: Run Build
-      id: build_apk
+    - name: Try Build
       continue-on-error: true
       run: |
+        set -o pipefail
         echo "y" | buildozer -v android debug 2>&1 | tee build_log.txt
 
-    # ВЫЗОВ НАШЕГО ОТДЕЛЬНОГО СКРИПТА
-    - name: Parse Errors with Script
-      if: steps.build_apk.outcome == 'failure'
+    # ЭТОТ ШАГ ТЕПЕРЬ СРАБОТАЕТ ВСЕГДА
+    - name: Generate Error Log
+      if: always()
       run: python parse_errors.py
 
-    # Загрузка файлов (APK если успех, errors_only.txt если провал)
-    - name: Upload APK
-      if: steps.build_apk.outcome == 'success'
+    - name: Upload Logs (Always)
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-logs
+        path: |
+          build_log.txt
+          errors_only.txt
+
+    - name: Upload APK (If Exists)
       uses: actions/upload-artifact@v4
       with:
         name: sealgame-apk
         path: bin/*.apk
-
-    - name: Upload Error Log
-      if: steps.build_apk.outcome == 'failure'
-      uses: actions/upload-artifact@v4
-      with:
-        name: build-errors
-        path: errors_only.txt
