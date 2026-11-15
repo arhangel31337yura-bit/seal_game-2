@@ -16,6 +16,7 @@ android.ndk_path = /home/runner/.buildozer/android/platform/android-ndk-r25b
 android.archs = arm64-v8a
 android.allow_backup = True
 android.accept_sdk_license = True
+android.permissions = WRITE_EXTERNAL_STORAGE
 
 [buildozer]
 log_level = 2
