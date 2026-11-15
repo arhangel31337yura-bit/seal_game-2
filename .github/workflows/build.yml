@@ -1,7 +1,6 @@
 name: Build Android APK
 
 on:
-    branches: [ main ]
   workflow_dispatch:
 
 jobs:
@@ -42,7 +41,3 @@ jobs:
       with:
         name: sealgame-apk
         path: bin/*.apk
-        uses: actions/upload-artifact@v4
-        with:
-          name: sealgame-apk
-          path: bin/*.apk
