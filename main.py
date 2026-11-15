@@ -12,6 +12,7 @@ class SealGame(FloatLayout):
     def __init__(self, **kw):
         super().__init__(**kw)
         
+        # Подключаем игровое поле
         self.game_area = GameArea(size_hint=(1, 1))
         self.add_widget(self.game_area)
 
@@ -36,7 +37,7 @@ class SealGame(FloatLayout):
         self.menu_layout.add_widget(btn2)
         self.menu_layout.add_widget(btn3)
 
-        # Пасхалка
+        # Пасхалка (Золотая рыбка)
         self.egg_btn = Button(background_color=(0,0,0,0), background_normal='', size_hint=(None, None), size=(100, 100), pos=(20, 20))
         with self.egg_btn.canvas.after:
             Color(1, 0.8, 0.2)
@@ -49,7 +50,7 @@ class SealGame(FloatLayout):
         self.menu_layout.add_widget(self.egg_lbl)
         self.add_widget(self.menu_layout)
 
-        # GAME OVER
+        # ЭКРАН GAME OVER
         self.go_layout = FloatLayout(opacity=0)
         self.go_lbl = Label(text="", font_size='40sp', bold=True, color=get_color_from_hex("#FFFFFF"), pos_hint={'center_x': 0.5, 'center_y': 0.6})
         btn_restart = Button(text="В МЕНЮ", size_hint=(0.6, 0.1), pos_hint={'center_x': 0.5, 'center_y': 0.4}, background_color=get_color_from_hex("#4cd137"))
