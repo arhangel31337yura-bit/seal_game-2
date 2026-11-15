@@ -11,24 +11,27 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    # 1. Скачиваем наш кэш (чтобы не компилировать Python заново)
+    # 1. Скачиваем наш кэш
     - name: Setup Cache
       uses: actions/cache@v4
       with:
         path: |
+          ~/.buildozer
           .buildozer
           ~/.gradle
-        key: ultra-${{ runner.os }}-${{ hashFiles('buildozer.spec') }}
+        key: docker-v2-${{ runner.os }}-${{ hashFiles('buildozer.spec') }}
         restore-keys: |
-          ultra-${{ runner.os }}-
+          docker-v2-${{ runner.os }}-
 
-    # 2. Собираем с помощью Docker (Всё уже установлено внутри)
+    # 2. Собираем с помощью Docker
     - name: Build APK with Docker
       run: |
         docker run --rm \
+          --entrypoint="" \
           -v "${{ github.workspace }}:/home/user/hostcwd" \
-          -v "${{ github.workspace }}/.buildozer:/home/user/.buildozer" \
-          -v "${{ github.workspace }}/.gradle:/home/user/.gradle" \
+          -v "$HOME/.buildozer:/home/user/.buildozer" \
+          -v "$HOME/.gradle:/home/user/.gradle" \
+          -w /home/user/hostcwd \
           kivy/buildozer:latest \
           buildozer -v android debug
 
@@ -40,10 +43,14 @@ jobs:
         name: sealgame-apk
         path: bin/*.apk
 
-    # 4. Если ошибка — загружаем лог
-    - name: Upload Log on Failure
+    # 4. Загружаем логи (если что-то пошло не так)
+    - name: Upload Logs on Failure
       if: failure()
       uses: actions/upload-artifact@v4
       with:
-        name: error-log
-        path: buildozer.log
+        name: all-logs
+        path: |
+          .buildozer/android/platform/build-*/dists/*/build/outputs/logs/*
+          bin/*.log
+          *.log
+        if-no-files-found: warn
