@@ -21,8 +21,10 @@ jobs:
         run: |
           pip install --upgrade buildozer cython virtualenv
 
-      - name: Build with Buildozer
-        run: echo y | buildozer android debug
+      - name: Clean and Build with Buildozer
+        run: |
+          echo y | buildozer android clean
+          echo y | buildozer -v android debug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
