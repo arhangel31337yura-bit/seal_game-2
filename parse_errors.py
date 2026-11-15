@@ -1,29 +1,31 @@
 import re
 
-# Открываем лог, который создаст Buildozer
 try:
-    with open("build_log.txt", "r", encoding="utf-8") as f:
+    with open("build_log.txt", "r", encoding="utf-8", errors="ignore") as f:
         lines = f.readlines()
 except FileNotFoundError:
     print("Лог-файл не найден!")
     exit(1)
 
-# Ищем строки с ошибками
-error_keywords = ["error", "exception", "traceback", "failed"]
-errors = [line for line in lines if any(kw in line.lower() for kw in error_keywords)]
+# Ловим реальные ошибки И нехватку памяти
+error_keywords = ["traceback", "command failed", "build failed", "syntaxerror", "exception", "fatal error", "killed", "memoryerror"]
+# Игнорируем команды компиляции
+ignore_keywords = ["-werror", "gcc ", "g++ ", "checking for"]
 
-# Берем последние 100 строк для контекста
-context = lines[-100:] if len(lines) > 100 else lines
+errors = []
+for line in lines:
+    line_lower = line.lower()
+    if any(kw in line_lower for kw in error_keywords) and not any(ig in line_lower for ig in ignore_keywords):
+        errors.append(line)
 
-# Записываем все в чистый файл
+context = lines[-50:] if len(lines) > 50 else lines
+
 with open("errors_only.txt", "w", encoding="utf-8") as f:
-    f.write("=== НАЙДЕННЫЕ ОШИБКИ ===\n")
+    f.write("=== НАСТОЯЩИЕ ОШИБКИ ===\n")
     if errors:
         f.writelines(errors)
     else:
-        f.write("Строк со словами Error/Traceback не найдено.\n")
+        f.write("Строгих ошибок не найдено. Возможно, не хватило памяти (Killed).\n")
         
-    f.write("\n\n=== ПОСЛЕДНИЕ 100 СТРОК ЛОГА (ДЛЯ КОНТЕКСТА) ===\n")
+    f.write("\n\n=== ПОСЛЕДНИЕ 50 СТРОК ЛОГА (СМОТРИ ТУТ) ===\n")
     f.writelines(context)
-
-print("Ошибки успешно собраны в файл errors_only.txt!")
