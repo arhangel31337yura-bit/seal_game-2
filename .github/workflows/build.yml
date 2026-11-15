@@ -17,11 +17,25 @@ jobs:
       with:
         python-version: '3.10'
 
+    # 1. Ставим Java 17 для Gradle
+    - name: Set up Java 17
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+
+    # 2. Ставим Java 11 для Buildozer (sdkmanager)
     - name: Set up Java 11
       uses: actions/setup-java@v4
       with:
         distribution: 'temurin'
         java-version: '11'
+
+    # 3. Создаем файл-подсказку для Gradle, чтобы он использовал 17-ю версию
+    - name: Tell Gradle to use Java 17
+      run: |
+        mkdir -p ~/.gradle
+        echo "org.gradle.java.home=$JAVA_HOME_17_X64" > ~/.gradle/gradle.properties
 
     - name: Setup Cache
       uses: ./.github/actions/cache-buildozer
