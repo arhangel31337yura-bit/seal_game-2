@@ -239,4 +239,15 @@ if __name__ == "__main__":
         return SealGame()
 
 if __name__ == "__main__":
-    SealApp().run()
+    import traceback
+    try:
+        SealApp().run()
+    except Exception:
+        # Если произошла ошибка, сохраняем её в файл
+        error_text = traceback.format_exc()
+        try:
+            # Пытаемся сохранить в папку Загрузки
+            with open("/sdcard/Download/seal_error.txt", "w", encoding="utf-8") as f:
+                f.write(error_text)
+        except:
+            pass # Если не получилось, просто молчим
