@@ -17,3 +17,5 @@ android.allow_backup = True
 [buildozer]
 log_level = 2
 warn_on_root = 1
+android.ndk = 27b
+android.ndk_path = /home/runner/.buildozer/android/platform/android-ndk-r27b
