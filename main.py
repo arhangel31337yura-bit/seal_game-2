@@ -5,7 +5,6 @@ from kivy.uix.button import Button
 from kivy.clock import Clock
 from kivy.graphics import Color, Ellipse, Rectangle, Line, Polygon, RoundedRectangle
 from kivy.utils import get_color_from_hex
-from kivy.core.text import Label as CoreLabel
 import random
 import math
 
@@ -25,6 +24,14 @@ class SealGame(FloatLayout):
         self.gun_cooldown = 0
         self.seal_x = self.width / 2
 
+        # --- HUD (Счёт) ---
+        self.score_label = Label(
+            text="0", font_size='28sp', bold=True, 
+            color=get_color_from_hex("#FFD700"), 
+            pos_hint={'x': 0.15, 'top': 0.95}, halign='left'
+        )
+        self.add_widget(self.score_label)
+
         # --- ЭКРАН GAME OVER ---
         self.game_over_layout = FloatLayout(opacity=0)
         self.game_over_label = Label(
@@ -42,14 +49,27 @@ class SealGame(FloatLayout):
         self.game_over_layout.add_widget(self.restart_btn)
         self.add_widget(self.game_over_layout)
 
-        # --- ПАСХАЛКА ---
-        self.easter_egg_btn = Button(background_color=(0,0,0,0), size_hint=(None, None), size=(80, 80), pos=(40, 40))
+        # --- ВИДИМАЯ ПАСХАЛКА (Рыбка-кнопка) ---
+        self.easter_egg_btn = Button(
+            background_color=(0,0,0,0), background_normal='', background_down='', 
+            size_hint=(None, None), size=(100, 100), pos=(30, 30)
+        )
+        # Рисуем рыбку ПРЯМО НА КНОПКЕ, чтобы она была видимой
+        with self.easter_egg_btn.canvas.after:
+            Color(1, 0.8, 0.2) # Золотой цвет
+            Ellipse(pos=(20, 30), size=(60, 35)) # Тело
+            Polygon(points=[20, 47.5, 0, 20, 0, 75]) # Хвост
+            Color(0, 0, 0) # Глаз
+            Ellipse(pos=(65, 42), size=(8, 8))
+            Color(1, 1, 1) # Блик в глазу
+            Ellipse(pos=(67, 44), size=(3, 3))
+
         self.easter_egg_btn.bind(on_release=self.show_easter_egg)
         
         self.easter_egg_bubble = Label(
             text="Ты нашёл пасхалку, молодец!",
             font_size='20sp', bold=True, color=get_color_from_hex("#0b2d45"),
-            size_hint=(None, None), size=(300, 80), pos=(120, 60),
+            size_hint=(None, None), size=(300, 80), pos=(140, 40),
             opacity=0, halign='center', valign='middle'
         )
         self.easter_egg_bubble.bind(size=self.easter_egg_bubble.setter('text_size'))
@@ -102,6 +122,7 @@ class SealGame(FloatLayout):
         self.spawn_timer = 0
         self.boss_timer = 0
         
+        self.score_label.text = "0"
         self.menu_layout.opacity = 0
         self.game_over_layout.opacity = 0
 
@@ -129,6 +150,7 @@ class SealGame(FloatLayout):
                 if math.hypot(item["x"] - tx, item["y"] - ty) < 70:
                     self.items.remove(item)
                     self.score += 5 if item["kind"] == "demon" else 50
+                    self.score_label.text = str(self.score)
 
     def update(self, dt):
         if self.state == "menu" or self.state == "game_over":
@@ -187,8 +209,12 @@ class SealGame(FloatLayout):
 
             if item["y"] < self.height * 0.15 + 60 and item["y"] > self.height * 0.15 - 60:
                 if abs(item["x"] - self.seal_x) < self.width * 0.15:
-                    if item["kind"] == "fish": self.score += 1
-                    elif item["kind"] == "star": self.score += 3
+                    if item["kind"] == "fish": 
+                        self.score += 1
+                        self.score_label.text = str(self.score)
+                    elif item["kind"] == "star": 
+                        self.score += 3
+                        self.score_label.text = str(self.score)
                     elif item["kind"] in ["trash", "demon", "bomb"]: self.lose_life()
                     elif item["kind"] == "medkit": self.lives += 1
                     
@@ -214,7 +240,6 @@ class SealGame(FloatLayout):
         self.game_over_label.text = f"ИГРА ОКОНЧЕНА!\n\nТвой счёт: {self.score}"
         self.game_over_layout.opacity = 1
 
-    # --- ИКОНКИ ---
     def draw_heart(self, x, y, size):
         Color(1, 0.3, 0.5)
         Ellipse(pos=(x, y + size*0.25), size=(size*0.55, size*0.55))
@@ -250,12 +275,12 @@ class SealGame(FloatLayout):
                 Ellipse(pos=(b["x"] - b["r"], b["y"] - b["r"]), size=(b["r"]*2, b["r"]*2))
 
             if self.state == "menu":
-                self.draw_fish_icon(60, 60, 40)
+                # Рисуем пузырь, если пасхалка активна
                 if self.easter_egg_bubble.opacity > 0:
                     Color(1, 1, 1, 0.9)
-                    RoundedRectangle(pos=(120, 60), size=(300, 80), radius=[15,])
+                    RoundedRectangle(pos=(140, 40), size=(300, 80), radius=[15,])
                     Color(0.1, 0.4, 0.7)
-                    Line(points=[120, 100, 100, 80, 120, 80], width=2)
+                    Line(points=[140, 80, 120, 60, 140, 60], width=2)
 
             if self.state in ["menu", "game_over"]:
                 return 
@@ -323,14 +348,10 @@ class SealGame(FloatLayout):
                     Ellipse(pos=(ix - 30, iy), size=(20, 20))
                     Ellipse(pos=(ix + 10, iy), size=(20, 20))
 
-            # HUD
+            # --- HUD ---
             self.draw_fish_icon(20, self.height - 60, 30)
             for i in range(max(0, self.lives)):
                 self.draw_heart(self.width - 60 - (i * 40), self.height - 55, 30)
-
-            score_txt = CoreLabel(text=f"{self.score}", font_size=int(self.width*0.06), color=get_color_from_hex("#FFD700"), bold=True)
-            score_txt.refresh()
-            Rectangle(texture=score_txt.texture, pos=(70, self.height - 65), size=score_txt.texture.size)
 
 class SealApp(App):
     def build(self):
