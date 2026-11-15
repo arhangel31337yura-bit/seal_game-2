@@ -1,4 +1,4 @@
-name: Fast Build APK
+name: Ultra Fast Build APK
 
 on:
   workflow_dispatch:
@@ -6,73 +6,44 @@ on:
 jobs:
   build:
     runs-on: ubuntu-22.04
-    timeout-minutes: 45
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.10'
-
-    # 1. Ставим Java 17 для Gradle
-    - name: Set up Java 17
-      uses: actions/setup-java@v4
-      with:
-        distribution: 'temurin'
-        java-version: '17'
-
-    # 2. Ставим Java 11 для Buildozer (sdkmanager)
-    - name: Set up Java 11
-      uses: actions/setup-java@v4
-      with:
-        distribution: 'temurin'
-        java-version: '11'
-
-    # 3. Создаем файл-подсказку для Gradle, чтобы он использовал 17-ю версию
-    - name: Tell Gradle to use Java 17
-      run: |
-        mkdir -p ~/.gradle
-        echo "org.gradle.java.home=$JAVA_HOME_17_X64" > ~/.gradle/gradle.properties
-
+    # 1. Скачиваем наш кэш (чтобы не компилировать Python заново)
     - name: Setup Cache
-      uses: ./.github/actions/cache-buildozer
-
-    - name: Install dependencies
-      run: |
-        set -o pipefail
-        sudo apt-get update > /dev/null 2>&1
-        sudo apt-get install -y git zip unzip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev cmake libffi-dev libssl-dev > /dev/null 2>&1
-        python -m pip install --upgrade pip > /dev/null 2>&1
-        pip install buildozer cython==0.29.36 > /dev/null 2>&1
-
-    - name: Try Build
-      id: build_apk
-      run: |
-        set -o pipefail
-        echo "y" | buildozer -v android debug 2>&1 | tee build_log.txt
-
-    - name: Generate Error Log
-      if: failure()
-      run: python parse_errors.py
-
-    - name: Upload All Logs
-      if: failure()
-      uses: actions/upload-artifact@v4
+      uses: actions/cache@v4
       with:
-        name: all-logs
         path: |
-          *.log
-          *.txt
-        retention-days: 2
+          .buildozer
+          ~/.gradle
+        key: ultra-${{ runner.os }}-${{ hashFiles('buildozer.spec') }}
+        restore-keys: |
+          ultra-${{ runner.os }}-
 
+    # 2. Собираем с помощью Docker (Всё уже установлено внутри)
+    - name: Build APK with Docker
+      run: |
+        docker run --rm \
+          -v "${{ github.workspace }}:/home/user/hostcwd" \
+          -v "${{ github.workspace }}/.buildozer:/home/user/.buildozer" \
+          -v "${{ github.workspace }}/.gradle:/home/user/.gradle" \
+          kivy/buildozer:latest \
+          buildozer -v android debug
+
+    # 3. Загружаем APK, если всё хорошо
     - name: Upload APK
       if: success()
       uses: actions/upload-artifact@v4
       with:
         name: sealgame-apk
-        path: |
-          bin/*.apk
-          **/*.apk
+        path: bin/*.apk
+
+    # 4. Если ошибка — загружаем лог
+    - name: Upload Log on Failure
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: error-log
+        path: buildozer.log
