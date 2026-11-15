@@ -1,0 +1,15 @@
+name: 'Cache Buildozer'
+description: 'Кэширует тяжелые зависимости Buildozer для ускорения сборки'
+
+runs:
+  using: "composite"
+  steps:
+    - name: Restore and Save Cache
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.buildozer
+          .buildozer
+        key: ${{ runner.os }}-buildozer-${{ hashFiles('buildozer.spec') }}
+        restore-keys: |
+          ${{ runner.os }}-buildozer-
