@@ -17,26 +17,22 @@ jobs:
       with:
         python-version: '3.10'
 
-    # Устанавливаем Java 17
     - name: Set up Java 17
       uses: actions/setup-java@v4
       with:
         distribution: 'temurin'
         java-version: '17'
 
-    # Устанавливаем Java 11
     - name: Set up Java 11
       uses: actions/setup-java@v4
       with:
         distribution: 'temurin'
         java-version: '11'
 
-    # ЖЕСТКО указываем Gradle, где Java 17
-    - name: Configure Gradle
+    - name: Tell Gradle to use Java 17
       run: |
         mkdir -p ~/.gradle
         echo "org.gradle.java.home=$JAVA_HOME_17_X64" > ~/.gradle/gradle.properties
-        echo "org.gradle.jvmargs=-Xmx2048m" >> ~/.gradle/gradle.properties
 
     - name: Setup Cache
       uses: ./.github/actions/cache-buildozer
@@ -55,19 +51,43 @@ jobs:
         set -o pipefail
         echo "y" | buildozer -v android debug 2>&1 | tee build_log.txt
 
-    - name: Generate Error Log
-      if: failure()
-      run: python parse_errors.py
-
-    - name: Upload All Logs
-      if: failure()
-      uses: actions/upload-artifact@v4
+    # === НОВЫЙ ШАГ: ДЫМОВОЙ ТЕСТ НА ЭМУЛЯТОРЕ ===
+    - name: Test APK on Emulator
+      if: success() # Запускаем только если сборка прошла успешно
+      uses: reactivecircus/android-emulator-runner@v2
       with:
-        name: all-logs
-        path: |
-          *.log
-          *.txt
-        retention-days: 2
+        api-level: 33
+        target: google_apis
+        arch: x86_64
+        profile: pixel_4
+        script: |
+          # 1. Находим наш APK
+          APK_PATH=$(find . -name "*.apk" | head -n 1)
+          if [ -z "$APK_PATH" ]; then
+            echo "❌ APK file not found!"
+            exit 1
+          fi
+          echo "✅ Found APK: $APK_PATH"
+
+          # 2. Устанавливаем APK на эмулятор
+          adb install -r "$APK_PATH"
+
+          # 3. Запускаем главную активность и ждём 10 секунд
+          echo "🚀 Launching app..."
+          adb shell am start -W -n org.tulen.sealgame/org.kivy.android.PythonActivity
+
+          # 4. Ждём 10 секунд (проверка на вылет)
+          sleep 10
+
+          # 5. Проверяем, жив ли процесс игры
+          PID=$(adb shell pidof org.tulen.sealgame)
+          if [ -z "$PID" ]; then
+            echo "❌ CRASH! App process died after launch."
+            adb logcat -d | tail -n 100 # Покажем последние логи для отладки
+            exit 1
+          else
+            echo "✅ SUCCESS! App is still running (PID: $PID)."
+          fi
 
     - name: Upload APK
       if: success()
