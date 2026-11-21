@@ -10,6 +10,6 @@ runs:
         path: |
           ~/.buildozer
           .buildozer
-        key: v3-${{ runner.os }}-buildozer-${{ hashFiles('buildozer.spec') }}
+        key: v12-${{ runner.os }}-buildozer-${{ hashFiles('buildozer.spec') }}
         restore-keys: |
           v3-${{ runner.os }}-buildozer-
